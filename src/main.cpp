@@ -1,5 +1,5 @@
-// Entry point. Runs the CPU baseline and the naive CUDA kernel for a few matrix
-// sizes, checks the GPU result against the CPU result, and prints timings.
+// Entry point. Runs the CPU baseline and both CUDA kernels for a few matrix
+// sizes, checks both GPU results against the CPU result, and prints timings.
 // A fuller benchmark harness (repeated runs, all kernels) comes in Stage 4.
 //
 // Usage: matmul_bench [N1 N2 ...]     (default sizes: 256 512 1024)
@@ -26,13 +26,15 @@ int main(int argc, char** argv) {
         sizes = {256, 512, 1024};
     }
 
-    std::printf("%8s  %12s  %14s  %10s  %8s\n",
-                "N", "CPU (ms)", "Naive GPU (ms)", "Speedup", "Check");
+    std::printf("%8s  %10s  %12s  %12s  %11s  %12s  %8s\n",
+                "N", "CPU (ms)", "Naive (ms)", "Tiled (ms)",
+                "CPU/Tiled", "Naive/Tiled", "Check");
 
     bool all_ok = true;
     for (const int N : sizes) {
         const std::size_t count = static_cast<std::size_t>(N) * N;
-        std::vector<float> A(count), B(count), C_cpu(count), C_gpu(count);
+        std::vector<float> A(count), B(count), C_cpu(count);
+        std::vector<float> C_naive(count), C_tiled(count);
         fill_random(A, 1);
         fill_random(B, 2);
 
@@ -41,16 +43,28 @@ int main(int argc, char** argv) {
         const auto stop = std::chrono::steady_clock::now();
         const double cpu_ms = std::chrono::duration<double, std::milli>(stop - start).count();
 
-        const float gpu_ms = matmul_gpu_naive(A.data(), B.data(), C_gpu.data(), N);
+        const float naive_ms = matmul_gpu_naive(A.data(), B.data(), C_naive.data(), N);
+        const float tiled_ms = matmul_gpu_tiled(A.data(), B.data(), C_tiled.data(), N);
 
-        const CompareResult r = compare_matrices(C_cpu.data(), C_gpu.data(), N);
-        all_ok = all_ok && r.passed;
+        const CompareResult naive_result =
+            compare_matrices(C_cpu.data(), C_naive.data(), N);
+        const CompareResult tiled_result =
+            compare_matrices(C_cpu.data(), C_tiled.data(), N);
+        const bool passed = naive_result.passed && tiled_result.passed;
+        all_ok = all_ok && passed;
 
-        std::printf("%8d  %12.2f  %14.3f  %9.1fx  %8s\n",
-                    N, cpu_ms, gpu_ms, cpu_ms / gpu_ms, r.passed ? "OK" : "MISMATCH");
-        if (!r.passed) {
-            std::printf("          %d mismatches, first at index %d, max abs error %.3e\n",
-                        r.mismatches, r.first_bad_index, r.max_abs_error);
+        std::printf("%8d  %10.2f  %12.3f  %12.3f  %10.1fx  %11.2fx  %8s\n",
+                    N, cpu_ms, naive_ms, tiled_ms, cpu_ms / tiled_ms,
+                    naive_ms / tiled_ms, passed ? "OK" : "MISMATCH");
+        if (!naive_result.passed) {
+            std::printf("          Naive: %d mismatches, first at %d, max abs error %.3e\n",
+                        naive_result.mismatches, naive_result.first_bad_index,
+                        naive_result.max_abs_error);
+        }
+        if (!tiled_result.passed) {
+            std::printf("          Tiled: %d mismatches, first at %d, max abs error %.3e\n",
+                        tiled_result.mismatches, tiled_result.first_bad_index,
+                        tiled_result.max_abs_error);
         }
     }
     return all_ok ? 0 : 1;

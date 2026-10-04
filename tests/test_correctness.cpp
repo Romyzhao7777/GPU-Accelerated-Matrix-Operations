@@ -106,6 +106,21 @@ void test_gpu_naive(int N) {
     report(name, r.passed);
 }
 
+void test_gpu_tiled(int N) {
+    std::vector<float> A(N * N), B(N * N), ref(N * N), C(N * N);
+    fill_random(A, 200);
+    fill_random(B, 201);
+
+    matmul_cpu(A.data(), B.data(), ref.data(), N);
+    matmul_gpu_tiled(A.data(), B.data(), C.data(), N);
+
+    const CompareResult r = compare_matrices(ref.data(), C.data(), N);
+    char name[96];
+    std::snprintf(name, sizeof(name), "tiled GPU vs CPU, N=%d (max abs err %.2e)",
+                  N, r.max_abs_error);
+    report(name, r.passed);
+}
+
 }  // namespace
 
 int main() {
@@ -125,6 +140,9 @@ int main() {
     // (200) where partial blocks at the right and bottom edges must be masked off.
     for (const int N : {1, 15, 16, 17, 200, 512, 1024}) {
         test_gpu_naive(N);
+    }
+    for (const int N : {1, 15, 16, 17, 200, 512, 1024}) {
+        test_gpu_tiled(N);
     }
 
     if (g_failures == 0) {

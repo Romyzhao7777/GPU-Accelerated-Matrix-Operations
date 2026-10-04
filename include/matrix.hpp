@@ -41,3 +41,7 @@ CompareResult compare_matrices(const float* ref, const float* test, int N,
 
 // One thread computes one element of C, reading A and B straight from global memory.
 float matmul_gpu_naive(const float* A, const float* B, float* C, int N);
+
+// One thread still computes one output element, but threads in a block
+// cooperatively cache tiles of A and B in shared memory for reuse.
+float matmul_gpu_tiled(const float* A, const float* B, float* C, int N);
