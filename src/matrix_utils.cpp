@@ -1,7 +1,9 @@
 #include "matrix.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <numeric>
 #include <random>
 
 void fill_random(std::vector<float>& M, unsigned seed) {
@@ -32,4 +34,20 @@ CompareResult compare_matrices(const float* ref, const float* test, int N,
         }
     }
     return result;
+}
+
+TimingStats summarize_timings(std::vector<double> timings_ms) {
+    if (timings_ms.empty()) {
+        return {0.0, 0.0, 0.0, 0};
+    }
+
+    std::sort(timings_ms.begin(), timings_ms.end());
+    const std::size_t count = timings_ms.size();
+    const double median = (count % 2 == 0)
+                              ? (timings_ms[count / 2 - 1] + timings_ms[count / 2]) / 2.0
+                              : timings_ms[count / 2];
+    const double mean =
+        std::accumulate(timings_ms.begin(), timings_ms.end(), 0.0) / count;
+
+    return {timings_ms.front(), median, mean, static_cast<int>(count)};
 }

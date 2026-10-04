@@ -58,7 +58,15 @@ __global__ void matmul_tiled_kernel(const float* A, const float* B, float* C, in
 
 }  // namespace
 
-float matmul_gpu_tiled(const float* A, const float* B, float* C, int N) {
+TimingStats matmul_gpu_tiled(const float* A, const float* B, float* C, int N,
+                            int warmup_runs, int measured_runs) {
+    if (warmup_runs < 0) {
+        warmup_runs = 0;
+    }
+    if (measured_runs < 1) {
+        measured_runs = 1;
+    }
+
     const std::size_t bytes = static_cast<std::size_t>(N) * N * sizeof(float);
 
     float *d_A = nullptr, *d_B = nullptr, *d_C = nullptr;
@@ -73,23 +81,31 @@ float matmul_gpu_tiled(const float* A, const float* B, float* C, int N) {
     const dim3 grid((N + TILE_SIZE - 1) / TILE_SIZE,
                     (N + TILE_SIZE - 1) / TILE_SIZE);
 
-    // Warm-up launch: keep one-time kernel setup outside the timed region.
-    matmul_tiled_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
-    CUDA_CHECK(cudaGetLastError());
+    // Keep one-time kernel setup and the GPU's idle-to-active transition
+    // outside the measured samples.
+    for (int i = 0; i < warmup_runs; ++i) {
+        matmul_tiled_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
+        CUDA_CHECK(cudaGetLastError());
+    }
     CUDA_CHECK(cudaDeviceSynchronize());
 
     cudaEvent_t start, stop;
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
 
-    CUDA_CHECK(cudaEventRecord(start));
-    matmul_tiled_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
-    CUDA_CHECK(cudaEventRecord(stop));
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaEventSynchronize(stop));
+    std::vector<double> timings_ms;
+    timings_ms.reserve(measured_runs);
+    for (int i = 0; i < measured_runs; ++i) {
+        CUDA_CHECK(cudaEventRecord(start));
+        matmul_tiled_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
+        CUDA_CHECK(cudaEventRecord(stop));
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaEventSynchronize(stop));
 
-    float kernel_ms = 0.0f;
-    CUDA_CHECK(cudaEventElapsedTime(&kernel_ms, start, stop));
+        float elapsed_ms = 0.0f;
+        CUDA_CHECK(cudaEventElapsedTime(&elapsed_ms, start, stop));
+        timings_ms.push_back(elapsed_ms);
+    }
 
     CUDA_CHECK(cudaMemcpy(C, d_C, bytes, cudaMemcpyDeviceToHost));
 
@@ -99,5 +115,5 @@ float matmul_gpu_tiled(const float* A, const float* B, float* C, int N) {
     CUDA_CHECK(cudaFree(d_B));
     CUDA_CHECK(cudaFree(d_C));
 
-    return kernel_ms;
+    return summarize_timings(timings_ms);
 }

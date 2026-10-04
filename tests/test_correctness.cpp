@@ -91,6 +91,16 @@ void test_compare_detects_error() {
            !r.passed && r.mismatches == 1 && r.first_bad_index == 5 * N + 9);
 }
 
+void test_timing_statistics() {
+    const TimingStats odd = summarize_timings({9.0, 1.0, 5.0});
+    const TimingStats even = summarize_timings({8.0, 2.0, 4.0, 6.0});
+    report("timing summary statistics",
+           odd.min_ms == 1.0 && odd.median_ms == 5.0 && odd.mean_ms == 5.0 &&
+               odd.samples == 3 && even.min_ms == 2.0 &&
+               even.median_ms == 5.0 && even.mean_ms == 5.0 &&
+               even.samples == 4);
+}
+
 void test_gpu_naive(int N) {
     std::vector<float> A(N * N), B(N * N), ref(N * N), C(N * N);
     fill_random(A, 100);
@@ -134,6 +144,7 @@ int main() {
     test_against_textbook(200);
     test_against_textbook(512);
     test_compare_detects_error();
+    test_timing_statistics();
 
     // Sizes chosen around the 16x16 block size: smaller than one block (1, 15),
     // exactly one block (16), one block plus a sliver (17), and non-multiples

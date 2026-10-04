@@ -36,7 +36,15 @@ __global__ void matmul_naive_kernel(const float* A, const float* B, float* C, in
 
 }  // namespace
 
-float matmul_gpu_naive(const float* A, const float* B, float* C, int N) {
+TimingStats matmul_gpu_naive(const float* A, const float* B, float* C, int N,
+                            int warmup_runs, int measured_runs) {
+    if (warmup_runs < 0) {
+        warmup_runs = 0;
+    }
+    if (measured_runs < 1) {
+        measured_runs = 1;
+    }
+
     const std::size_t bytes = static_cast<std::size_t>(N) * N * sizeof(float);
 
     // 1. Allocate device (GPU) memory. Host and device have separate address
@@ -59,14 +67,15 @@ float matmul_gpu_naive(const float* A, const float* B, float* C, int N) {
     const dim3 grid((N + BLOCK_SIZE - 1) / BLOCK_SIZE,
                     (N + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
-    // Warm-up launch, not timed. The first launch of a kernel pays one-time
-    // costs (e.g. loading the kernel code onto the GPU), which would otherwise
-    // inflate the measurement.
-    matmul_naive_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
-    CUDA_CHECK(cudaGetLastError());       // catches invalid launch configurations
-    CUDA_CHECK(cudaDeviceSynchronize());  // catches errors raised while the kernel ran
+    // Warm-up launches are not timed. They absorb one-time costs such as loading
+    // the kernel code and allow the GPU to leave its idle power state.
+    for (int i = 0; i < warmup_runs; ++i) {
+        matmul_naive_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
+        CUDA_CHECK(cudaGetLastError());
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
 
-    // 4. Timed launch. Kernel launches are asynchronous: the <<<>>> call returns
+    // 4. Timed launches. Kernel launches are asynchronous: the <<<>>> call returns
     //    to the CPU immediately, before the GPU has finished. A CPU timer around
     //    it would mostly measure launch overhead. CUDA events are timestamps
     //    recorded by the GPU itself in its command stream, so the time between
@@ -75,14 +84,19 @@ float matmul_gpu_naive(const float* A, const float* B, float* C, int N) {
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
 
-    CUDA_CHECK(cudaEventRecord(start));
-    matmul_naive_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
-    CUDA_CHECK(cudaEventRecord(stop));
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaEventSynchronize(stop));  // block the CPU until the GPU reaches `stop`
+    std::vector<double> timings_ms;
+    timings_ms.reserve(measured_runs);
+    for (int i = 0; i < measured_runs; ++i) {
+        CUDA_CHECK(cudaEventRecord(start));
+        matmul_naive_kernel<<<grid, block>>>(d_A, d_B, d_C, N);
+        CUDA_CHECK(cudaEventRecord(stop));
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaEventSynchronize(stop));
 
-    float kernel_ms = 0.0f;
-    CUDA_CHECK(cudaEventElapsedTime(&kernel_ms, start, stop));
+        float elapsed_ms = 0.0f;
+        CUDA_CHECK(cudaEventElapsedTime(&elapsed_ms, start, stop));
+        timings_ms.push_back(elapsed_ms);
+    }
 
     // 5. Copy the result device -> host. cudaMemcpy waits for prior GPU work to finish.
     CUDA_CHECK(cudaMemcpy(C, d_C, bytes, cudaMemcpyDeviceToHost));
@@ -93,5 +107,5 @@ float matmul_gpu_naive(const float* A, const float* B, float* C, int N) {
     CUDA_CHECK(cudaFree(d_B));
     CUDA_CHECK(cudaFree(d_C));
 
-    return kernel_ms;
+    return summarize_timings(timings_ms);
 }

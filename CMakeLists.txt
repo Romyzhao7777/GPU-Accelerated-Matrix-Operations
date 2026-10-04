@@ -37,6 +37,7 @@ add_library(matmul STATIC
     src/matrix_utils.cpp
     src/cuda_naive.cu
     src/cuda_tiled.cu
+    src/cuda_utils.cu
 )
 target_include_directories(matmul PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
