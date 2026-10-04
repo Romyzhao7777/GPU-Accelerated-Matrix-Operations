@@ -8,10 +8,12 @@ The project is being developed incrementally:
 - [x] Single-threaded CPU baseline
 - [x] Naive CUDA kernel
 - [x] Shared-memory tiled CUDA kernel
-- [ ] Repeated-run benchmark harness
+- [x] Repeated-run benchmark harness
+- [x] Benchmark collection on an NVIDIA Tesla T4
 - [ ] Final performance analysis and graph
 
-Current status: **Stage 3 complete and verified on an NVIDIA Tesla T4**.
+Current status: **Stage 5 complete — implementations verified and benchmarked
+on an NVIDIA Tesla T4**.
 
 ## Motivation
 
@@ -105,34 +107,50 @@ matrix, an independent textbook CPU implementation, and CUDA sizes around the
 All tests pass on the Tesla T4. The largest observed absolute difference was
 `2.10e-05`.
 
-## Preliminary results
+## Benchmark methodology
+
+- GPU kernels run twice for warm-up, followed by 10 measured runs.
+- CPU runs five times through `N=1024`, three times at `N=2048`, and once at
+  `N=4096` to keep the full benchmark practical.
+- The table reports the median of the measured samples. The `N=4096` CPU value
+  is a single sample rather than a true median.
+- CPU time is measured with `std::chrono`.
+- GPU time is measured with CUDA events around the kernel only.
+- CUDA context initialization, device allocation, and host-device transfers
+  are excluded from GPU kernel time.
+- The program checks available GPU memory before allocating three device
+  matrices and skips a size when insufficient memory is available.
+
+The reported speedups are therefore **kernel speedups, not end-to-end
+application speedups**.
+
+## Benchmark results
 
 Environment:
 
 - GPU: NVIDIA Tesla T4, 15 GB
 - NVIDIA driver: 580.82.07
-- CUDA compiler/runtime: CUDA 13.0
+- CUDA compiler: nvcc 13.0.88
 - Host compiler: GCC 13.3.0
 - Build type: Release
 - Platform: Google Colab
 - Matrix data type: 32-bit floating point
+- Benchmark date: October 4, 2026
 
 | Matrix size | CPU (ms) | Naive (ms) | Tiled (ms) | CPU / Tiled | Naive / Tiled |
 |---:|---:|---:|---:|---:|---:|
-| 256 x 256 | 4.01 | 0.092 | 0.062 | 64.7x | 1.48x |
-| 512 x 512 | 29.28 | 0.629 | 0.409 | 71.6x | 1.54x |
-| 1024 x 1024 | 397.13 | 4.797 | 3.004 | 132.2x | 1.60x |
-| 2048 x 2048 | 2484.47 | 74.932 | 31.719 | 78.3x | 2.36x |
-| 4096 x 4096 | 25738.64 | 318.203 | 205.451 | 125.3x | 1.55x |
+| 256 x 256 | 4.50 | 0.096 | 0.067 | 67.4x | 1.44x |
+| 512 x 512 | 37.58 | 0.685 | 0.442 | 85.1x | 1.55x |
+| 1024 x 1024 | 301.27 | 9.193 | 5.802 | 51.9x | 1.58x |
+| 2048 x 2048 | 2362.35 | 40.365 | 26.174 | 90.3x | 1.54x |
+| 4096 x 4096 | 27028.84 | 330.236 | 214.902 | 125.8x | 1.54x |
 
-The tiled kernel was faster than the naive kernel at every tested size, with
-an observed improvement of `1.48x` to `2.36x`.
+The tiled kernel was faster at every tested size. Its improvement over the
+naive kernel remained between `1.44x` and `1.58x`, showing that shared-memory
+reuse consistently reduced kernel time across this range.
 
-These are preliminary single-run measurements. CPU time is measured with
-`std::chrono`, while GPU time is measured with CUDA events around the kernel
-only. GPU allocation and host-device transfers are deliberately excluded, so
-the reported speedup is **kernel speedup, not end-to-end application speedup**.
-Stage 4 will add repeated runs and more robust statistics.
+The machine-readable results, including run counts, are stored in
+[`results/tesla_t4.csv`](results/tesla_t4.csv).
 
 ## Project structure
 
@@ -145,10 +163,13 @@ Stage 4 will add repeated runs and more robust statistics.
 │   ├── cpu.cpp              # CPU matrix multiplication
 │   ├── cuda_naive.cu        # One-thread-per-output CUDA kernel
 │   ├── cuda_tiled.cu        # Shared-memory tiled CUDA kernel
+│   ├── cuda_utils.cu        # GPU memory availability check
 │   ├── main.cpp             # Correctness check and timing output
 │   └── matrix_utils.cpp     # Random initialization and result comparison
 ├── tests/
 │   └── test_correctness.cpp # CPU and CUDA correctness tests
+├── results/
+│   └── tesla_t4.csv         # Reproducible benchmark data
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -185,7 +206,7 @@ Run all correctness tests:
 ./build/matmul_tests
 ```
 
-Run the default matrix sizes (`256`, `512`, and `1024`):
+Run the default matrix sizes (`256`, `512`, `1024`, and `2048`):
 
 ```bash
 ./build/matmul_bench
@@ -199,7 +220,5 @@ Pass custom square matrix sizes as command-line arguments:
 
 ## Next stage
 
-Stage 4 will replace the preliminary single-run timing with a proper benchmark
-harness. It will run each implementation multiple times, separate warm-up from
-measurement, report stable summary statistics, and handle sizes that are too
-slow or exceed available memory.
+Stage 6 will add a performance graph, analyze the scaling behavior and
+limitations of the measurements, and finish the project documentation.

@@ -1,0 +1,6 @@
+matrix_size,cpu_median_ms,cpu_runs,naive_median_ms,tiled_median_ms,gpu_warmup_runs,gpu_measured_runs,cpu_tiled_speedup,naive_tiled_speedup
+256,4.50,5,0.096,0.067,2,10,67.4,1.44
+512,37.58,5,0.685,0.442,2,10,85.1,1.55
+1024,301.27,5,9.193,5.802,2,10,51.9,1.58
+2048,2362.35,3,40.365,26.174,2,10,90.3,1.54
+4096,27028.84,1,330.236,214.902,2,10,125.8,1.54
