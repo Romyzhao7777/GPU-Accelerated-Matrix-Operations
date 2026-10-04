@@ -29,3 +29,15 @@ struct CompareResult {
 // order than the CPU will not produce bit-identical results; we need a tolerance.
 CompareResult compare_matrices(const float* ref, const float* test, int N,
                                float atol = 1e-3f, float rtol = 1e-3f);
+
+// ---------------------------------------------------------------------------
+// GPU implementations (defined in .cu files).
+//
+// These are ordinary host functions, so callers (main.cpp, tests) stay plain
+// C++ and never need nvcc. Each one takes host pointers, does all device
+// memory management and copies internally, writes the result into C, and
+// returns the execution time of the kernel alone in milliseconds.
+// ---------------------------------------------------------------------------
+
+// One thread computes one element of C, reading A and B straight from global memory.
+float matmul_gpu_naive(const float* A, const float* B, float* C, int N);

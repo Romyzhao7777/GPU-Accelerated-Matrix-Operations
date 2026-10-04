@@ -91,6 +91,21 @@ void test_compare_detects_error() {
            !r.passed && r.mismatches == 1 && r.first_bad_index == 5 * N + 9);
 }
 
+void test_gpu_naive(int N) {
+    std::vector<float> A(N * N), B(N * N), ref(N * N), C(N * N);
+    fill_random(A, 100);
+    fill_random(B, 101);
+
+    matmul_cpu(A.data(), B.data(), ref.data(), N);
+    matmul_gpu_naive(A.data(), B.data(), C.data(), N);
+
+    const CompareResult r = compare_matrices(ref.data(), C.data(), N);
+    char name[96];
+    std::snprintf(name, sizeof(name), "naive GPU vs CPU, N=%d (max abs err %.2e)",
+                  N, r.max_abs_error);
+    report(name, r.passed);
+}
+
 }  // namespace
 
 int main() {
@@ -104,6 +119,13 @@ int main() {
     test_against_textbook(200);
     test_against_textbook(512);
     test_compare_detects_error();
+
+    // Sizes chosen around the 16x16 block size: smaller than one block (1, 15),
+    // exactly one block (16), one block plus a sliver (17), and non-multiples
+    // (200) where partial blocks at the right and bottom edges must be masked off.
+    for (const int N : {1, 15, 16, 17, 200, 512, 1024}) {
+        test_gpu_naive(N);
+    }
 
     if (g_failures == 0) {
         std::printf("All tests passed.\n");
