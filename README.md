@@ -10,10 +10,10 @@ The project is being developed incrementally:
 - [x] Shared-memory tiled CUDA kernel
 - [x] Repeated-run benchmark harness
 - [x] Benchmark collection on an NVIDIA Tesla T4
-- [ ] Final performance analysis and graph
+- [x] Final performance analysis and graph
 
-Current status: **Stage 5 complete — implementations verified and benchmarked
-on an NVIDIA Tesla T4**.
+Current status: **Complete — all implementations are verified, benchmarked,
+and documented**.
 
 ## Motivation
 
@@ -30,7 +30,7 @@ The project currently demonstrates:
 - Host and device memory allocation and transfers
 - Kernel timing with CUDA events
 - Floating-point correctness checks
-- Basic CPU-versus-GPU performance comparison
+- Repeated CPU-versus-GPU performance measurement
 
 ## Implementations
 
@@ -129,6 +129,7 @@ application speedups**.
 Environment:
 
 - GPU: NVIDIA Tesla T4, 15 GB
+- CPU: Intel Xeon at 2.00 GHz, 1 core / 2 threads
 - NVIDIA driver: 580.82.07
 - CUDA compiler: nvcc 13.0.88
 - Host compiler: GCC 13.3.0
@@ -145,9 +146,55 @@ Environment:
 | 2048 x 2048 | 2362.35 | 40.365 | 26.174 | 90.3x | 1.54x |
 | 4096 x 4096 | 27028.84 | 330.236 | 214.902 | 125.8x | 1.54x |
 
+![Execution-time comparison](results/performance.svg)
+
+## Performance analysis
+
+### CPU versus GPU
+
+Both CUDA kernels substantially outperform the single-threaded CPU baseline.
+The tiled kernel ranges from `51.9x` to `125.8x` faster in kernel execution
+time. The advantage generally becomes larger for bigger matrices because more
+parallel work is available to fill the GPU.
+
+This comparison is intentionally against the project's own single-threaded
+CPU implementation. It is not a comparison with a multithreaded BLAS library
+such as Intel MKL.
+
+### Naive versus tiled CUDA
+
 The tiled kernel was faster at every tested size. Its improvement over the
 naive kernel remained between `1.44x` and `1.58x`, showing that shared-memory
 reuse consistently reduced kernel time across this range.
+
+The theoretical reduction in repeated global-memory reads does not translate
+directly into an equal runtime improvement. The tiled kernel also pays for
+shared-memory loads, index calculations, and two synchronization barriers per
+tile. In addition, the naive kernel already benefits from coalesced reads of
+`B`, broadcast reads of `A`, and the GPU's hardware caches. The observed
+roughly `1.5x` improvement is therefore plausible and, importantly,
+repeatable across the tested sizes.
+
+### Scaling behavior
+
+Matrix multiplication performs roughly `2N^3` floating-point operations, so
+doubling `N` ideally increases the work by about eight times. The overall
+timing trend follows this cubic growth, although individual ratios vary due to
+cache behavior, GPU clock state, and the shared Google Colab environment.
+This is why the benchmark reports medians instead of relying on a single GPU
+measurement.
+
+## Measurement limitations
+
+- GPU timings cover kernel execution only; allocation and PCIe transfers are
+  excluded.
+- The CPU implementation is single-threaded and is not a vendor-optimized BLAS
+  implementation.
+- Google Colab hardware load and clock behavior can vary between sessions.
+- The `4096 x 4096` CPU result uses one run because each multiplication takes
+  about 27 seconds.
+- Results apply to the listed Tesla T4 environment and should not be assumed
+  for other GPU architectures.
 
 The machine-readable results, including run counts, are stored in
 [`results/tesla_t4.csv`](results/tesla_t4.csv).
@@ -169,6 +216,7 @@ The machine-readable results, including run counts, are stored in
 ├── tests/
 │   └── test_correctness.cpp # CPU and CUDA correctness tests
 ├── results/
+│   ├── performance.svg      # Execution-time comparison graph
 │   └── tesla_t4.csv         # Reproducible benchmark data
 ├── CMakeLists.txt
 └── README.md
@@ -218,7 +266,15 @@ Pass custom square matrix sizes as command-line arguments:
 ./build/matmul_bench 256 512 1024 2048 4096
 ```
 
-## Next stage
+## Possible extensions
 
-Stage 6 will add a performance graph, analyze the scaling behavior and
-limitations of the measurements, and finish the project documentation.
+The current scope is intentionally small. Potential follow-up experiments
+include:
+
+- Comparing different CUDA block and tile sizes
+- Matrix addition or transpose
+- Comparing against cuBLAS
+- Profiling with Nsight Compute
+- Studying memory coalescing
+- Pinned host memory
+- CUDA streams and overlapping transfer with computation

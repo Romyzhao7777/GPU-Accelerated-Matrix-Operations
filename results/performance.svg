@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Matrix multiplication execution time</title>
+  <desc id="desc">Log-scale line chart comparing CPU, naive CUDA, and tiled CUDA median execution times from matrix size 256 through 4096.</desc>
+
+  <rect width="960" height="540" rx="12" fill="#ffffff"/>
+  <text x="480" y="34" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#24292f">Matrix Multiplication Execution Time</text>
+  <text x="480" y="57" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#57606a">Median time on Tesla T4 · logarithmic y-axis · GPU kernel time only</text>
+
+  <!-- Horizontal logarithmic grid: 0.1 ms through 10,000 ms. -->
+  <g stroke="#d8dee4" stroke-width="1">
+    <line x1="90" y1="431" x2="900" y2="431"/>
+    <line x1="90" y1="368" x2="900" y2="368"/>
+    <line x1="90" y1="304" x2="900" y2="304"/>
+    <line x1="90" y1="241" x2="900" y2="241"/>
+    <line x1="90" y1="178" x2="900" y2="178"/>
+    <line x1="90" y1="115" x2="900" y2="115"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="12" fill="#57606a" text-anchor="end">
+    <text x="80" y="435">0.1</text>
+    <text x="80" y="372">1</text>
+    <text x="80" y="308">10</text>
+    <text x="80" y="245">100</text>
+    <text x="80" y="182">1,000</text>
+    <text x="80" y="119">10,000</text>
+  </g>
+
+  <line x1="90" y1="70" x2="90" y2="450" stroke="#57606a" stroke-width="1.5"/>
+  <line x1="90" y1="450" x2="900" y2="450" stroke="#57606a" stroke-width="1.5"/>
+
+  <g font-family="Arial, sans-serif" font-size="13" fill="#24292f" text-anchor="middle">
+    <text x="130" y="475">256</text>
+    <text x="310" y="475">512</text>
+    <text x="490" y="475">1024</text>
+    <text x="670" y="475">2048</text>
+    <text x="850" y="475">4096</text>
+    <text x="495" y="510" font-size="14" font-weight="600">Matrix dimension N (N × N)</text>
+  </g>
+  <text x="24" y="260" transform="rotate(-90 24 260)" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#24292f">Execution time (ms, log scale)</text>
+
+  <!-- CPU: 4.50, 37.58, 301.27, 2362.35, 27028.84 ms -->
+  <polyline points="130,326 310,268 490,211 670,154 850,87" fill="none" stroke="#d62728" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#d62728">
+    <circle cx="130" cy="326" r="5"/><circle cx="310" cy="268" r="5"/>
+    <circle cx="490" cy="211" r="5"/><circle cx="670" cy="154" r="5"/>
+    <circle cx="850" cy="87" r="5"/>
+  </g>
+
+  <!-- Naive CUDA: 0.096, 0.685, 9.193, 40.365, 330.236 ms -->
+  <polyline points="130,432 310,378 490,307 670,266 850,208" fill="none" stroke="#ff7f0e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#ff7f0e">
+    <circle cx="130" cy="432" r="5"/><circle cx="310" cy="378" r="5"/>
+    <circle cx="490" cy="307" r="5"/><circle cx="670" cy="266" r="5"/>
+    <circle cx="850" cy="208" r="5"/>
+  </g>
+
+  <!-- Tiled CUDA: 0.067, 0.442, 5.802, 26.174, 214.902 ms -->
+  <polyline points="130,442 310,390 490,319 670,278 850,220" fill="none" stroke="#1f77b4" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#1f77b4">
+    <circle cx="130" cy="442" r="5"/><circle cx="310" cy="390" r="5"/>
+    <circle cx="490" cy="319" r="5"/><circle cx="670" cy="278" r="5"/>
+    <circle cx="850" cy="220" r="5"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="13" fill="#24292f">
+    <line x1="112" y1="83" x2="140" y2="83" stroke="#d62728" stroke-width="3"/>
+    <circle cx="126" cy="83" r="4" fill="#d62728"/>
+    <text x="148" y="88">CPU</text>
+    <line x1="212" y1="83" x2="240" y2="83" stroke="#ff7f0e" stroke-width="3"/>
+    <circle cx="226" cy="83" r="4" fill="#ff7f0e"/>
+    <text x="248" y="88">Naive CUDA</text>
+    <line x1="354" y1="83" x2="382" y2="83" stroke="#1f77b4" stroke-width="3"/>
+    <circle cx="368" cy="83" r="4" fill="#1f77b4"/>
+    <text x="390" y="88">Tiled CUDA</text>
+  </g>
+</svg>
